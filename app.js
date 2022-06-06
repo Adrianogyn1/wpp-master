@@ -242,7 +242,8 @@ app.post('/send-message', [
   Send Midia
   number, caption, fileUrl
 ======================================*/
-app.post('/send-media', async (req, res) => {
+app.post('/send-media', async (req, res) => 
+{
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
   const fileUrl = req.body.file;
@@ -362,8 +363,17 @@ app.post('/send-contact', [
       message: 'The number is not registered'
     });
   }
-const contactMsg = new Contact({ number: contact, pushName: contactName});
-  client.sendMessage(number, contactMsg).then(response => 
+
+  const vCard = `BEGIN:VCARD
+  VERSION:3.0
+  FN;CHARSET=UTF-8:`+contactName+`
+  N;CHARSET=UTF-8:;;;;
+  EMAIL;CHARSET=UTF-8;type=HOME,INTERNET:
+  TEL;TYPE=HOME,VOICE:`+contact+`
+  REV:2021-06-06T02:35:53.559Z
+  END:VCARD`;
+
+  client.sendMessage(number, vCard).then(response => 
     {
     res.status(200).json({
       status: true,
