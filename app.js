@@ -1,4 +1,4 @@
-const { Client, MessageMedia, LocalAuth } = require('whatsapp-web.js');
+const { Client, MessageMedia, LocalAuth, Contact, Location, Buttons } = require('whatsapp-web.js');
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const socketIO = require('socket.io');
@@ -51,7 +51,26 @@ const client = new Client({
 });
  
 client.on('message', msg => {
-  if (msg.body == '!ping') {
+ //Envia as mensagem recebida para o site
+var mensagem = 
+{
+  "numero":msg.number,
+  "mensagem": msg.body
+}
+
+ fetch(this.setMsgEntregue, {
+      method: 'POST',
+      body: JSON.stringify(mensagem),//JSON.stringify(data),
+      headers: { 'Content-Type': 'application/json' }
+  }).then(res => { return res.json();})
+  .then(json => {
+      console.log('json result:');
+      console.log(json);
+      return json;
+  });
+
+
+ /* if (msg.body == '!ping') {
     msg.reply('pong');
   } else if (msg.body == 'good morning') {
     msg.reply('selamat pagi');
@@ -70,6 +89,7 @@ client.on('message', msg => {
         msg.reply(replyMsg);
       }
     });
+  
   }
 
   // Downloading media
@@ -107,7 +127,7 @@ client.on('message', msg => {
         }
       }
     });
-  }
+  }  /**/
 });
 
 client.initialize();
@@ -152,7 +172,30 @@ const checkRegisteredNumber = async function(number) {
   return isRegistered;
 }
 
-// Send message
+
+const findGroupByName = async function(name) {
+  const group = await client.getChats().then(chats => {
+    return chats.find(chat => 
+      chat.isGroup && chat.name.toLowerCase() == name.toLowerCase()
+    );
+  });
+  return group;
+}
+
+
+
+
+
+
+
+
+
+
+
+/*===========================================
+  Send msg
+  number, message
+======================================*/
 app.post('/send-message', [
   body('number').notEmpty(),
   body('message').notEmpty(),
@@ -195,7 +238,10 @@ app.post('/send-message', [
   });
 });
 
-// Send media
+/*===========================================
+  Send Midia
+  number, caption, fileUrl
+======================================*/
 app.post('/send-media', async (req, res) => {
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
@@ -229,17 +275,114 @@ app.post('/send-media', async (req, res) => {
   });
 });
 
-const findGroupByName = async function(name) {
-  const group = await client.getChats().then(chats => {
-    return chats.find(chat => 
-      chat.isGroup && chat.name.toLowerCase() == name.toLowerCase()
-    );
+/*======================================
+  Enviar localizacao
+  number, latitude, longitude, message
+========================================= */
+app.post('/send-location', [
+  body('number').notEmpty(),
+  body('latitude').notEmpty(),
+  body('longitude').notEmpty(),
+  body('message').notEmpty(),
+], async (req, res) => {
+  const errors = validationResult(req).formatWith(({
+    msg
+  }) => {
+    return msg;
   });
-  return group;
-}
+
+  if (!errors.isEmpty()) 
+  {
+    return res.status(422).json({
+      status: false,
+      message: errors.mapped()
+    });
+  }
+
+  const number = phoneNumberFormatter(req.body.number);
+  const latitude = req.body.latitude;
+  const longitude = req.body.longitude;
+  const msg = req.body.message;
+
+  const isRegisteredNumber = await checkRegisteredNumber(number);
+
+  if (!isRegisteredNumber) {
+    return res.status(422).json({
+      status: false,
+      message: 'The number is not registered'
+    });
+  }
+const location = new Location(latitude, longitude, msg);
+  client.sendMessage(number, location).then(response => 
+    {
+    res.status(200).json({
+      status: true,
+      response: response
+    });
+  }).catch(err => {
+    res.status(500).json({
+      status: false,
+      response: err
+    });
+  });
+});
+
+/*===========================================
+  enviar contato
+  number, message
+======================================*/
+app.post('/send-contact', [
+  body('number').notEmpty(),
+  body('contact').notEmpty(),
+  body('name').notEmpty(),
+], async (req, res) => {
+  const errors = validationResult(req).formatWith(({
+    msg
+  }) => {
+    return msg;
+  });
+
+  if (!errors.isEmpty()) 
+  {
+    return res.status(422).json({
+      status: false,
+      message: errors.mapped()
+    });
+  }
+
+  const number = phoneNumberFormatter(req.body.number);
+  const contact = phoneNumberFormatter(req.body.contact);
+  const contactName = req.body.contact;
+
+  const isRegisteredNumber = await checkRegisteredNumber(number);
+
+  if (!isRegisteredNumber) {
+    return res.status(422).json({
+      status: false,
+      message: 'The number is not registered'
+    });
+  }
+const contactMsg = new Contact({ number: contact, pushName: contactName});
+  client.sendMessage(number, contactMsg).then(response => 
+    {
+    res.status(200).json({
+      status: true,
+      response: response
+    });
+  }).catch(err => {
+    res.status(500).json({
+      status: false,
+      response: err
+    });
+  });
+});
+
 
 // Send message to group
 // You can use chatID or group name, yea!
+/*===========================================
+  Enviar em grupo mensagem
+======================================*/
 app.post('/send-group-message', [
   body('id').custom((value, { req }) => {
     if (!value && !req.body.name) {
@@ -292,6 +435,9 @@ app.post('/send-group-message', [
 });
 
 // Clearing message on spesific chat
+/*===========================================
+  Limpar mensagem
+======================================*/
 app.post('/clear-message', [
   body('number').notEmpty(),
 ], async (req, res) => {
