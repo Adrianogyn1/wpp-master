@@ -58,7 +58,8 @@ var mensagem =
   "mensagem": msg.body
 }
 var url = process.env.SITE_API;
-
+console.log("Mensagem enviada"+mensagem);
+console.log("Url: " + url);
  fetch(url, {
       method: 'POST',
       body: JSON.stringify(mensagem),//JSON.stringify(data),
@@ -374,7 +375,7 @@ app.post('/send-contact', [
   REV:2021-06-06T02:35:53.559Z
   END:VCARD`;
 //await client.sendMessage(remoteId, vCard, {parseVCards: false});
-  client.sendMessage(number, vCard).then(response => 
+  client.sendMessage(number, vCard, {parseVCards: false}).then(response => 
     {
     res.status(200).json({
       status: true,
