@@ -9,6 +9,10 @@ const { phoneNumberFormatter } = require('./helpers/formatter');
 const fileUpload = require('express-fileupload');
 const axios = require('axios');
 const mime = require('mime-types');
+const { WppMensagem } = require('./Msg');
+const RespostaApi = require("./RespostaApi");
+
+
 
 const port = process.env.PORT || 3333;
 
@@ -49,93 +53,94 @@ const client = new Client({
   },
   authStrategy: new LocalAuth()
 });
- 
+
 client.on('message', msg => {
- //Envia as mensagem recebida para o site
-var mensagem = 
-{
-  "numero":msg.number,
-  "mensagem": msg.body
-}
-var url = process.env.SITE_API;
-console.log("Mensagem enviada"+mensagem);
-console.log("Url: " + url);
- fetch(url, {
-      method: 'POST',
-      body: JSON.stringify(mensagem),//JSON.stringify(data),
-      headers: { 'Content-Type': 'application/json' }
-  }).then(res => { return res.json();})
-  .then(json => {
+  //Envia as mensagem recebida para o site
+  var mensagem = new WppMensagem(number, msg.body);
+  var msgApi = RespostaApi();
+  msgApi.SetObj(mensagem);
+  msgApi.SetSucesso(true);
+  msgApi.setMsg('Mensagem recebida');
+
+  var url = process.env.SITE_API;
+  console.log("Mensagem enviada" + msgApi);
+  console.log("Url: " + url);
+  fetch(url, {
+    method: 'POST',
+    body: JSON.stringify(msgApi),//JSON.stringify(data),
+    headers: { 'Content-Type': 'application/json' }
+  }).then(res => { return res.json(); })
+    .then(json => {
       console.log('json result:');
       console.log(json);
       return json;
-  });
-
-
- /* if (msg.body == '!ping') {
-    msg.reply('pong');
-  } else if (msg.body == 'good morning') {
-    msg.reply('selamat pagi');
-  } else if (msg.body == '!groups') {
-    client.getChats().then(chats => {
-      const groups = chats.filter(chat => chat.isGroup);
-
-      if (groups.length == 0) {
-        msg.reply('You have no group yet.');
-      } else {
-        let replyMsg = '*YOUR GROUPS*\n\n';
-        groups.forEach((group, i) => {
-          replyMsg += `ID: ${group.id._serialized}\nName: ${group.name}\n\n`;
-        });
-        replyMsg += '_You can use the group id to send a message to the group._'
-        msg.reply(replyMsg);
-      }
     });
-  
-  }
 
-  // Downloading media
-  if (msg.hasMedia) {
-    msg.downloadMedia().then(media => {
-      // To better understanding
-      // Please look at the console what data we get
-      console.log(media);
 
-      if (media) {
-        // The folder to store: change as you want!
-        // Create if not exists
-        const mediaPath = './downloaded-media/';
-
-        if (!fs.existsSync(mediaPath)) {
-          fs.mkdirSync(mediaPath);
-        }
-
-        // Get the file extension by mime-type
-        const extension = mime.extension(media.mimetype);
-        
-        // Filename: change as you want! 
-        // I will use the time for this example
-        // Why not use media.filename? Because the value is not certain exists
-        const filename = new Date().getTime();
-
-        const fullFilename = mediaPath + filename + '.' + extension;
-
-        // Save to file
-        try {
-          fs.writeFileSync(fullFilename, media.data, { encoding: 'base64' }); 
-          console.log('File downloaded successfully!', fullFilename);
-        } catch (err) {
-          console.log('Failed to save the file:', err);
-        }
-      }
-    });
-  }  /**/
+  /* if (msg.body == '!ping') {
+     msg.reply('pong');
+   } else if (msg.body == 'good morning') {
+     msg.reply('selamat pagi');
+   } else if (msg.body == '!groups') {
+     client.getChats().then(chats => {
+       const groups = chats.filter(chat => chat.isGroup);
+ 
+       if (groups.length == 0) {
+         msg.reply('You have no group yet.');
+       } else {
+         let replyMsg = '*YOUR GROUPS*\n\n';
+         groups.forEach((group, i) => {
+           replyMsg += `ID: ${group.id._serialized}\nName: ${group.name}\n\n`;
+         });
+         replyMsg += '_You can use the group id to send a message to the group._'
+         msg.reply(replyMsg);
+       }
+     });
+   
+   }
+ 
+   // Downloading media
+   if (msg.hasMedia) {
+     msg.downloadMedia().then(media => {
+       // To better understanding
+       // Please look at the console what data we get
+       console.log(media);
+ 
+       if (media) {
+         // The folder to store: change as you want!
+         // Create if not exists
+         const mediaPath = './downloaded-media/';
+ 
+         if (!fs.existsSync(mediaPath)) {
+           fs.mkdirSync(mediaPath);
+         }
+ 
+         // Get the file extension by mime-type
+         const extension = mime.extension(media.mimetype);
+         
+         // Filename: change as you want! 
+         // I will use the time for this example
+         // Why not use media.filename? Because the value is not certain exists
+         const filename = new Date().getTime();
+ 
+         const fullFilename = mediaPath + filename + '.' + extension;
+ 
+         // Save to file
+         try {
+           fs.writeFileSync(fullFilename, media.data, { encoding: 'base64' }); 
+           console.log('File downloaded successfully!', fullFilename);
+         } catch (err) {
+           console.log('Failed to save the file:', err);
+         }
+       }
+     });
+   }  /**/
 });
 
 client.initialize();
 
 // Socket IO
-io.on('connection', function(socket) {
+io.on('connection', function (socket) {
   socket.emit('message', 'Connecting...');
 
   client.on('qr', (qr) => {
@@ -157,7 +162,7 @@ io.on('connection', function(socket) {
     console.log('AUTHENTICATED');
   });
 
-  client.on('auth_failure', function(session) {
+  client.on('auth_failure', function (session) {
     socket.emit('message', 'Auth failure, restarting...');
   });
 
@@ -169,15 +174,15 @@ io.on('connection', function(socket) {
 });
 
 
-const checkRegisteredNumber = async function(number) {
+const checkRegisteredNumber = async function (number) {
   const isRegistered = await client.isRegisteredUser(number);
   return isRegistered;
 }
 
 
-const findGroupByName = async function(name) {
+const findGroupByName = async function (name) {
   const group = await client.getChats().then(chats => {
-    return chats.find(chat => 
+    return chats.find(chat =>
       chat.isGroup && chat.name.toLowerCase() == name.toLowerCase()
     );
   });
@@ -207,12 +212,11 @@ app.post('/send-message', [
   }) => {
     return msg;
   });
+  var resposta = new RespostaApi();
 
   if (!errors.isEmpty()) {
-    return res.status(422).json({
-      status: false,
-      message: errors.mapped()
-    });
+    resposta.setMsg("erro").SetErro(true).SetObj(errors);
+    return res.status(422).json(resposta);
   }
 
   const number = phoneNumberFormatter(req.body.number);
@@ -221,22 +225,16 @@ app.post('/send-message', [
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
-    return res.status(422).json({
-      status: false,
-      message: 'The number is not registered'
-    });
+    resposta.setMsg("The number is not registered'").SetErro(true);
+    return res.status(422).json(resposta);
   }
 
   client.sendMessage(number, message).then(response => {
-    res.status(200).json({
-      status: true,
-      response: response
-    });
+    resposta.setMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+    return res.status(200).json(resposta);
   }).catch(err => {
-    res.status(500).json({
-      status: false,
-      response: err
-    });
+    reresposta.setMsg("Erro ao enviar mensagem").SetErro(true).SetObj(err);
+    return res.status(500).json(resposta);
   });
 });
 
@@ -244,8 +242,7 @@ app.post('/send-message', [
   Send Midia
   number, caption, fileUrl
 ======================================*/
-app.post('/send-media', async (req, res) => 
-{
+app.post('/send-media', async (req, res) => {
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
   const fileUrl = req.body.file;
@@ -294,12 +291,11 @@ app.post('/send-location', [
     return msg;
   });
 
-  if (!errors.isEmpty()) 
-  {
-    return res.status(422).json({
-      status: false,
-      message: errors.mapped()
-    });
+  var resposta = new RespostaApi();
+
+  if (!errors.isEmpty()) {
+    resposta.setMsg("erro").SetErro(true).SetObj(errors.mapped());
+    return res.status(422).json(resposta);
   }
 
   const number = phoneNumberFormatter(req.body.number);
@@ -310,23 +306,16 @@ app.post('/send-location', [
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
-    return res.status(422).json({
-      status: false,
-      message: 'The number is not registered'
-    });
+    resposta.setMsg("Número não registrado").SetErro(true);
+    return res.status(422).json(resposta);
   }
-const location = new Location(latitude, longitude, msg);
-  client.sendMessage(number, location).then(response => 
-    {
-    res.status(200).json({
-      status: true,
-      response: response
-    });
+  const location = new Location(latitude, longitude, msg);
+  client.sendMessage(number, location).then(response => {
+    resposta.setMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+    return res.status(200).json(resposta);
   }).catch(err => {
-    res.status(500).json({
-      status: false,
-      response: err
-    });
+    resposta.setMsg("erro").SetErro(true).SetObj(err);
+    return res.status(422).json(resposta);
   });
 });
 
@@ -345,8 +334,7 @@ app.post('/send-contact', [
     return msg;
   });
 
-  if (!errors.isEmpty()) 
-  {
+  if (!errors.isEmpty()) {
     return res.status(422).json({
       status: false,
       message: errors.mapped()
@@ -368,15 +356,14 @@ app.post('/send-contact', [
 
   const vCard = `BEGIN:VCARD
   VERSION:3.0
-  FN;CHARSET=UTF-8:`+contactName+`
+  FN;CHARSET=UTF-8:`+ contactName + `
   N;CHARSET=UTF-8:;;;;
   EMAIL;CHARSET=UTF-8;type=HOME,INTERNET:
-  TEL;TYPE=HOME,VOICE:`+contact+`
+  TEL;TYPE=HOME,VOICE:`+ contact + `
   REV:2021-06-06T02:35:53.559Z
   END:VCARD`;
-//await client.sendMessage(remoteId, vCard, {parseVCards: false});
-  client.sendMessage(number, vCard, {parseVCards: false}).then(response => 
-    {
+  //await client.sendMessage(remoteId, vCard, {parseVCards: false});
+  client.sendMessage(number, vCard, { parseVCards: false }).then(response => {
     res.status(200).json({
       status: true,
       response: response
@@ -478,7 +465,7 @@ app.post('/clear-message', [
   }
 
   const chat = await client.getChatById(number);
-  
+
   chat.clearMessages().then(status => {
     res.status(200).json({
       status: true,
@@ -492,6 +479,6 @@ app.post('/clear-message', [
   })
 });
 
-server.listen(port, function() {
+server.listen(port, function () {
   console.log('App running on *: ' + port);
 });
