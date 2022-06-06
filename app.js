@@ -57,8 +57,9 @@ var mensagem =
   "numero":msg.number,
   "mensagem": msg.body
 }
+var url = process.env.SITE_API;
 
- fetch(this.setMsgEntregue, {
+ fetch(url, {
       method: 'POST',
       body: JSON.stringify(mensagem),//JSON.stringify(data),
       headers: { 'Content-Type': 'application/json' }
@@ -372,7 +373,7 @@ app.post('/send-contact', [
   TEL;TYPE=HOME,VOICE:`+contact+`
   REV:2021-06-06T02:35:53.559Z
   END:VCARD`;
-
+//await client.sendMessage(remoteId, vCard, {parseVCards: false});
   client.sendMessage(number, vCard).then(response => 
     {
     res.status(200).json({
