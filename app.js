@@ -11,8 +11,11 @@ const axios = require('axios');
 const mime = require('mime-types');
 const { WppMensagem } = require('./Msg');
 const RespostaApi = require("./RespostaApi");
+var request = require('request');
 
-
+if (process.env.NODE_ENV !== 'production') {
+  require('dotenv').config();
+}
 
 const port = process.env.PORT || 3333;
 
@@ -51,30 +54,42 @@ const client = new Client({
       '--disable-gpu'
     ],
   },
-  authStrategy: new LocalAuth()
+  authStrategy: new LocalAuth({
+    clientId: 'servidor'
+  })
 });
 
 client.on('message', msg => {
-  //Envia as mensagem recebida para o site
-  var mensagem = new WppMensagem(number, msg.body);
-  var msgApi = RespostaApi();
-  msgApi.SetObj(mensagem);
-  msgApi.SetSucesso(true);
-  msgApi.setMsg('Mensagem recebida');
+
 
   var url = process.env.SITE_API;
-  console.log("Mensagem enviada" + msgApi);
-  console.log("Url: " + url);
-  fetch(url, {
-    method: 'POST',
-    body: JSON.stringify(msgApi),//JSON.stringify(data),
-    headers: { 'Content-Type': 'application/json' }
-  }).then(res => { return res.json(); })
-    .then(json => {
-      console.log('json result:');
-      console.log(json);
-      return json;
-    });
+ //Post with JSON
+var mensagem = new WppMensagem(msg.from, msg.body);
+  var msgApi = new RespostaApi();
+  msgApi.SetObj(mensagem);
+  msgApi.SetSucesso(true);
+  msgApi.SetMsg('Mensagem recebida');
+  io.emit('message', 'Mensagem recebida de ' + msg.from );
+    //Envia as mensagem recebida para o site
+   request({
+      url:url,
+      method: "POST",
+      json: true,   // <--Very important!!!
+      body: msgApi//JSON.stringify(msgApi)
+  }, function (error, response, body)
+  {
+    console.log(error);
+    console.log(body);
+      console.log(response);
+      io.emit('message', 'Servidor respondeu correto!');
+  });
+
+  //msg.reply("Oiiii, sua linda!@"+msg.from);
+ // console.log(msg);
+
+
+  
+
 
 
   /* if (msg.body == '!ping') {
@@ -215,7 +230,7 @@ app.post('/send-message', [
   var resposta = new RespostaApi();
 
   if (!errors.isEmpty()) {
-    resposta.setMsg("erro").SetErro(true).SetObj(errors);
+    resposta.SetMsg("erro").SetErro(true).SetObj(errors);
     return res.status(422).json(resposta);
   }
 
@@ -225,15 +240,15 @@ app.post('/send-message', [
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
-    resposta.setMsg("The number is not registered'").SetErro(true);
+    resposta.SetMsg("The number is not registered'").SetErro(true);
     return res.status(422).json(resposta);
   }
 
   client.sendMessage(number, message).then(response => {
-    resposta.setMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+    resposta.SetMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
     return res.status(200).json(resposta);
   }).catch(err => {
-    reresposta.setMsg("Erro ao enviar mensagem").SetErro(true).SetObj(err);
+    resposta.SetMsg("Erro ao enviar mensagem").SetErro(true).SetObj(err);
     return res.status(500).json(resposta);
   });
 });
@@ -294,7 +309,7 @@ app.post('/send-location', [
   var resposta = new RespostaApi();
 
   if (!errors.isEmpty()) {
-    resposta.setMsg("erro").SetErro(true).SetObj(errors.mapped());
+    resposta.SetMsg("erro").SetErro(true).SetObj(errors.mapped());
     return res.status(422).json(resposta);
   }
 
@@ -306,15 +321,15 @@ app.post('/send-location', [
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
-    resposta.setMsg("Número não registrado").SetErro(true);
+    resposta.SetMsg("Número não registrado").SetErro(true);
     return res.status(422).json(resposta);
   }
   const location = new Location(latitude, longitude, msg);
   client.sendMessage(number, location).then(response => {
-    resposta.setMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+    resposta.SetMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
     return res.status(200).json(resposta);
   }).catch(err => {
-    resposta.setMsg("erro").SetErro(true).SetObj(err);
+    resposta.SetMsg("erro").SetErro(true).SetObj(err);
     return res.status(422).json(resposta);
   });
 });
