@@ -1,4 +1,4 @@
-const { Client, MessageMedia, LocalAuth, Contact, Location, Buttons } = require('whatsapp-web.js');
+const { Client, MessageMedia, LocalAuth, Contact, Location, Buttons, List } = require('whatsapp-web.js');
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const socketIO = require('socket.io');
@@ -12,6 +12,7 @@ const mime = require('mime-types');
 const { WppMensagem } = require('./Msg');
 const RespostaApi = require("./RespostaApi");
 var request = require('request');
+const { json } = require('express/lib/response');
 
 if (process.env.NODE_ENV !== 'production') {
   require('dotenv').config();
@@ -63,32 +64,39 @@ client.on('message', msg => {
 
 
   var url = process.env.SITE_API;
- //Post with JSON
-var mensagem = new WppMensagem(msg.from, msg.body);
+  //Post with JSON
+  var mensagem = new WppMensagem(msg.from, msg.body);
   var msgApi = new RespostaApi();
   msgApi.SetObj(mensagem);
   msgApi.SetSucesso(true);
   msgApi.SetMsg('Mensagem recebida');
-  io.emit('message', 'Mensagem recebida de ' + msg.from );
-    //Envia as mensagem recebida para o site
-   request({
-      url:url,
-      method: "POST",
-      json: true,   // <--Very important!!!
-      body: msgApi//JSON.stringify(msgApi)
-  }, function (error, response, body)
-  {
-    console.log(error);
-    console.log(body);
+  Log('Mensagem recebida de ' + msg.from, "info", false);
+  //Envia as mensagem recebida para o site
+  request({
+    url: url,
+    method: "POST",
+    json: true,   // <--Very important!!!
+    body: msgApi//JSON.stringify(msgApi)
+  }, function (error, response, body) {
+    if (error != null) {
+      Log("Houve um erro ao receber de " + url, "Erro", false);
+      console.log(error);
+    }
+    if (body != null) {
+      Log("Menssagem enviada com sucesso!", "info", false);
+      console.log(body);
+    }
+    if (response != null) {
+      Log("Menssagem enviada com sucesso!", "info", false);
       console.log(response);
-      io.emit('message', 'Servidor respondeu correto!');
+    }
   });
 
   //msg.reply("Oiiii, sua linda!@"+msg.from);
- // console.log(msg);
+  // console.log(msg);
 
 
-  
+
 
 
 
@@ -217,11 +225,23 @@ const findGroupByName = async function (name) {
 /*===========================================
   Send msg
   number, message
+
+} else if (msg.body === '!buttons') {
+        let button = new Buttons('Button body',[{body:'bt1'},{body:'bt2'},{body:'bt3'}],'title','footer');
+        client.sendMessage(msg.from, button);
+    } else if (msg.body === '!list') {
+        let sections = [{title:'sectionTitle',rows:[{title:'ListItem1', description: 'desc'},{title:'ListItem2'}]}];
+        let list = new List('List body','btnText',sections,'Title','footer');
+        client.sendMessage(msg.from, list);
+
 ======================================*/
 app.post('/send-message', [
   body('number').notEmpty(),
   body('message').notEmpty(),
 ], async (req, res) => {
+
+  Log("send-message Menssagem recebida do servidor!", "info", false);
+
   const errors = validationResult(req).formatWith(({
     msg
   }) => {
@@ -236,16 +256,38 @@ app.post('/send-message', [
 
   const number = phoneNumberFormatter(req.body.number);
   const message = req.body.message;
-
+  const options = req.body.options;
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
     resposta.SetMsg("The number is not registered'").SetErro(true);
     return res.status(422).json(resposta);
   }
+//test
 
-  client.sendMessage(number, message).then(response => {
-    resposta.SetMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+var jsonParsed = JSON.parse(req.body['options']).Value;
+
+var testMesg = JSON.parse(req.body['message']).Value;
+var sections = [{title:'Selecione a melhor opção',rows:[/*{title:'ListItem1', description: 'desc'},{title:'ListItem2'}*/]}];
+
+ if(jsonParsed != null){
+  //options = JSON.parse(options);
+  jsonParsed.forEach(element => {
+   // testMesg += '\n'+element.key+'-*'+element.text+'*';
+   var r = {title: element.key+'-'+element.text, description: element.text};
+   sections[0].rows.push(r);
+   });
+ }
+
+  client.sendMessage(number, testMesg).then(response => {
+   // resposta.SetMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+
+    //enviar a lista
+   
+    let list = new List('Lista','Selecione',sections,'Escolha uma opçao','footer');
+    client.sendMessage(number, list);
+
+
     return res.status(200).json(resposta);
   }).catch(err => {
     resposta.SetMsg("Erro ao enviar mensagem").SetErro(true).SetObj(err);
@@ -258,6 +300,8 @@ app.post('/send-message', [
   number, caption, fileUrl
 ======================================*/
 app.post('/send-media', async (req, res) => {
+
+  Log("send-media Menssagem recebida do servidor!", "info", false);
   const number = phoneNumberFormatter(req.body.number);
   const caption = req.body.caption;
   const fileUrl = req.body.file;
@@ -300,6 +344,8 @@ app.post('/send-location', [
   body('longitude').notEmpty(),
   body('message').notEmpty(),
 ], async (req, res) => {
+
+  Log("send-location Menssagem recebida do servidor!", "info", false);
   const errors = validationResult(req).formatWith(({
     msg
   }) => {
@@ -343,6 +389,7 @@ app.post('/send-contact', [
   body('contact').notEmpty(),
   body('name').notEmpty(),
 ], async (req, res) => {
+  Log("send-contact Menssagem recebida do servidor!", "info", false);
   const errors = validationResult(req).formatWith(({
     msg
   }) => {
@@ -361,6 +408,7 @@ app.post('/send-contact', [
   const contactName = req.body.contact;
 
   const isRegisteredNumber = await checkRegisteredNumber(number);
+var con = client.getContactById(contact);
 
   if (!isRegisteredNumber) {
     return res.status(422).json({
@@ -378,7 +426,8 @@ app.post('/send-contact', [
   REV:2021-06-06T02:35:53.559Z
   END:VCARD`;
   //await client.sendMessage(remoteId, vCard, {parseVCards: false});
-  client.sendMessage(number, vCard, { parseVCards: false }).then(response => {
+ // client.sendMessage(number, vCard, { parseVCards: false }).then(response => {
+   client.sendMessage(number, con).then(response=>{
     res.status(200).json({
       status: true,
       response: response
@@ -497,3 +546,11 @@ app.post('/clear-message', [
 server.listen(port, function () {
   console.log('App running on *: ' + port);
 });
+
+function Log(msg, tipo = 'info', useConsole) {
+  var data = new Date();
+  var l = data.getDay() + '/' + data.getMonth() + '/' + data.getFullYear() + ' ' + data.getHours + ':' + data.getMinutes() + ':(' + tipo + '):' + msg;
+  if (useConsole)
+    console.log(l);
+  io.emit('message', l);
+}
