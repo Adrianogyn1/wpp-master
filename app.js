@@ -62,6 +62,20 @@ const client = new Client({
 
 client.on('message', msg => {
 
+  Log('Mensagem recebida de ' + msg.from, "info", false);
+  if(msg.hasMedia){
+    Log("Recebido midia de " + msg.from,"info", true);
+    return;
+  }
+
+if(msg.isStatus){
+  Log("Recebido estatus","info", true);
+  return;
+}
+if(msg.isGroup){
+  Log("Recebido de grupo","info", true);
+  return;
+}
 
   var url = process.env.SITE_API;
   //Post with JSON
@@ -70,7 +84,7 @@ client.on('message', msg => {
   msgApi.SetObj(mensagem);
   msgApi.SetSucesso(true);
   msgApi.SetMsg('Mensagem recebida');
-  Log('Mensagem recebida de ' + msg.from, "info", false);
+
   //Envia as mensagem recebida para o site
   request({
     url: url,
@@ -235,40 +249,47 @@ const findGroupByName = async function (name) {
         client.sendMessage(msg.from, list);
 
 ======================================*/
-app.post('/send-message', [
+app.post('/send-message',/* [
   body('number').notEmpty(),
   body('message').notEmpty(),
-], async (req, res) => {
+],*/ async (req, res) => {
 
   Log("send-message Menssagem recebida do servidor!", "info", false);
 
+  
+  var resposta = new RespostaApi();
+  /*
   const errors = validationResult(req).formatWith(({
     msg
   }) => {
     return msg;
   });
-  var resposta = new RespostaApi();
-
-  if (!errors.isEmpty()) {
-    resposta.SetMsg("erro").SetErro(true).SetObj(errors);
+  if (!errors.isEmpty()) 
+  {
+    resposta.SetMsg("erro");
+    resposta.SetErro(true)
+    resposta.SetObj(errors);
     return res.status(422).json(resposta);
   }
-
+/**/
   const number = phoneNumberFormatter(req.body.number);
   const message = req.body.message;
   const options = req.body.options;
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
-    resposta.SetMsg("The number is not registered'").SetErro(true);
+    resposta.SetMsg("Esta numero não é registrado")
+    resposta.SetErro(true);
     return res.status(422).json(resposta);
   }
 //test
-
+var testMesg = message;
+var sections = [];
+try{
 var jsonParsed = JSON.parse(req.body['options']).Value;
 
-var testMesg = JSON.parse(req.body['message']).Value;
-var sections = [{title:'Selecione a melhor opção',rows:[/*{title:'ListItem1', description: 'desc'},{title:'ListItem2'}*/]}];
+testMesg = JSON.parse(req.body['message']).Value;
+sections = [{title:'Selecione a melhor opção',rows:[/*{title:'ListItem1', description: 'desc'},{title:'ListItem2'}*/]}];
 
  if(jsonParsed != null){
   //options = JSON.parse(options);
@@ -278,19 +299,32 @@ var sections = [{title:'Selecione a melhor opção',rows:[/*{title:'ListItem1', 
    sections[0].rows.push(r);
    });
  }
+}catch{
+
+  Log("erro ao ler o json", "erro", false);
+}
+
 
   client.sendMessage(number, testMesg).then(response => {
-   // resposta.SetMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
-
-    //enviar a lista
    
-    let list = new List('Lista','Selecione',sections,'Escolha uma opçao','footer');
-    client.sendMessage(number, list);
+    resposta.SetMsg("Enviado com sucesso!");
+    resposta.SetErro(false);
+    resposta.SetObj(response);
+    Log("enviado a msg", "info", false);
+    //enviar a lista  
+    if(sections.length>0){
+      let list = new List('Lista','Selecione',sections,'Escolha uma opçao','footer');
+      client.sendMessage(number, list);
+      Log("Lista enviada", "info", false);
+    } 
+  
 
 
     return res.status(200).json(resposta);
   }).catch(err => {
-    resposta.SetMsg("Erro ao enviar mensagem").SetErro(true).SetObj(err);
+    resposta.SetMsg("Erro ao enviar mensagem");
+    resposta.SetErro(true);
+    resposta.SetObj(err);
     return res.status(500).json(resposta);
   });
 });
@@ -355,7 +389,9 @@ app.post('/send-location', [
   var resposta = new RespostaApi();
 
   if (!errors.isEmpty()) {
-    resposta.SetMsg("erro").SetErro(true).SetObj(errors.mapped());
+    resposta.SetMsg("erro");
+    resposta.SetErro(true);
+    resposta.SetObj(errors.mapped());
     return res.status(422).json(resposta);
   }
 
@@ -367,15 +403,20 @@ app.post('/send-location', [
   const isRegisteredNumber = await checkRegisteredNumber(number);
 
   if (!isRegisteredNumber) {
-    resposta.SetMsg("Número não registrado").SetErro(true);
+    resposta.SetMsg("Número não registrado");
+    resposta.SetErro(true);
     return res.status(422).json(resposta);
   }
   const location = new Location(latitude, longitude, msg);
   client.sendMessage(number, location).then(response => {
-    resposta.SetMsg("Enviado com sucesso!").SetErro(false).SetObj(response);
+    resposta.SetMsg("Enviado com sucesso!");
+    resposta.SetErro(false);
+    resposta.SetObj(response);
     return res.status(200).json(resposta);
   }).catch(err => {
-    resposta.SetMsg("erro").SetErro(true).SetObj(err);
+    resposta.SetMsg("erro");
+    resposta.SetErro(true);
+    resposta.SetObj(err);
     return res.status(422).json(resposta);
   });
 });
@@ -547,9 +588,10 @@ server.listen(port, function () {
   console.log('App running on *: ' + port);
 });
 
+
 function Log(msg, tipo = 'info', useConsole) {
-  var data = new Date();
-  var l = data.getDay() + '/' + data.getMonth() + '/' + data.getFullYear() + ' ' + data.getHours + ':' + data.getMinutes() + ':(' + tipo + '):' + msg;
+  var data = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
+  var l = data+ ':(' + tipo + '):' + msg;
   if (useConsole)
     console.log(l);
   io.emit('message', l);

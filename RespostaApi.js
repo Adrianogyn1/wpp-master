@@ -53,22 +53,22 @@ class RespostaApi
         }        
     }
 
-    async SetObj(value)
+    SetObj(value)
     {
         this.obj = value;
         return this;
     }
-    async SetMsg(value) {
+    SetMsg(value) {
         this.msg = value;
         this.tipo = 'response';
         return this;
     }
-    async SetErro(value) {
+    SetErro(value) {
         this.error = value;
         this.sucess = !value;
         return this;
     }
-    async SetSucesso(value) {
+    SetSucesso(value) {
         this.sucess = value;
         this.error = !value;
         return this;
